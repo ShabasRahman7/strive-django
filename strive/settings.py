@@ -13,36 +13,42 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from decouple import config
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-7g5m4kz=g9h#r3m4vpjrfc409827jx2lxpf03+_!nbgj7w4-)i'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # 'django.contrib.admin',  # 
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'products'
+    'rest_framework_simplejwt',
+    'corsheaders',
+    'django_filters',
+    'accounts',
+    'products',
+    'orders',
+    'categories',
+    'carousel',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -51,6 +57,19 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CSRF settings for cookie-based authentication
+# In local dev over HTTP, do not use Secure/None combination (cookies would be dropped)
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = False if DEBUG else True
+CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_AGE = 31449600  # 1 year
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 
 ROOT_URLCONF = 'strive.urls'
 
@@ -75,11 +94,16 @@ WSGI_APPLICATION = 'strive.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Database: switch to PostgreSQL using env, and keep legacy sqlite for one-time migration
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
+    },
 }
 
 
@@ -124,14 +148,70 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Custom User Model
+AUTH_USER_MODEL = 'accounts.User'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
-    }
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.CookieJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Fallback
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    'DEFAULT_FILTER_BACKENDS': [
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
 }
+
+# SimpleJWT settings (optional defaults provided)
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True, 
+    'BLACKLIST_AFTER_ROTATION': True, 
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    # Cookie settings for secure JWT storage
+    'AUTH_COOKIE': 'access_token',
+    'AUTH_COOKIE_REFRESH': 'refresh_token',
+    'AUTH_COOKIE_ACCESS_MAX_AGE': 30 * 60,  # 30 minutes
+    'AUTH_COOKIE_REFRESH_MAX_AGE': 7 * 24 * 60 * 60,  # 7 days
+    'AUTH_COOKIE_SECURE': not DEBUG,
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SAMESITE': 'None' if not DEBUG else 'Lax',
+}
+
+# Razorpay keys (for payments integration)
+RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
+RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
+
+# Email configuration
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='')
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://localhost:5173",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Static files
+STATIC_ROOT = BASE_DIR / 'staticfiles'
