@@ -21,11 +21,12 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from accounts.jwt_views import CookieTokenRefreshView
 
 urlpatterns = [
     # JWT Auth
     path('api/auth/jwt/create/', TokenObtainPairView.as_view(), name='jwt-obtain-pair'),
-    path('api/auth/jwt/refresh/', TokenRefreshView.as_view(), name='jwt-refresh'),
+    path('api/auth/jwt/refresh/', CookieTokenRefreshView.as_view(), name='jwt-refresh'),
     path('api/', include('accounts.urls')),
     # Users api
     path('api/', include('products.urls')),

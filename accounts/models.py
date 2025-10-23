@@ -11,6 +11,7 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     is_blocked = models.BooleanField(default=False)
+    is_admin_added = models.BooleanField(default=False)
     profile_image = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -71,6 +72,26 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"Reset token for {self.user.email}"
+
+
+class PasswordSetupToken(models.Model):
+    """Store password setup tokens for admin-added users"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Setup token for {self.user.email}"
+    
+    def is_expired(self):
+        """Check if token is expired (24 hours)"""
+        from django.utils import timezone
+        from datetime import timedelta
+        return timezone.now() > self.created_at + timedelta(hours=24)
 
 
 class PendingSignup(models.Model):

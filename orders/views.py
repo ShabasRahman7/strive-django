@@ -3,6 +3,13 @@ from rest_framework.response import Response
 from django.db import transaction
 from django.conf import settings
 from rest_framework.views import APIView
+from rest_framework.decorators import permission_classes
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count, Sum, Q
+from django.utils import timezone
+from datetime import datetime, timedelta
 import uuid
 import razorpay
 
@@ -13,7 +20,16 @@ from .serializers import (
     CartItemSerializer,
     WishlistItemSerializer,
     CreateOrderSerializer,
+    AdminOrderSerializer,
+    AdminOrderListSerializer,
+    AdminOrderUpdateSerializer,
 )
+
+
+class AdminOrderPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class OrderListView(generics.ListAPIView):
@@ -21,7 +37,7 @@ class OrderListView(generics.ListAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
+        return Order.objects.filter(user=self.request.user).order_by('-created_at')
 
 
 class OrderDetailView(generics.RetrieveAPIView):
@@ -30,6 +46,30 @@ class OrderDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user)
+
+
+class CancelOrderView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        order = self.get_object()
+        
+        # Only allow cancellation of pending orders
+        if order.status != 'pending':
+            return Response(
+                {'error': 'Only pending orders can be cancelled'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        order.status = 'cancelled'
+        order.save()
+        
+        serializer = self.get_serializer(order)
+        return Response(serializer.data)
 
 
 class CreateOrderFromCartView(generics.GenericAPIView):
@@ -364,3 +404,185 @@ class WishlistItemViewSet(viewsets.ModelViewSet):
         """Clear all wishlist items"""
         WishlistItem.objects.filter(user=request.user).delete()
         return Response({'message': 'Wishlist cleared'})
+
+
+# Admin-only views for order management
+class AdminOrderListView(generics.ListAPIView):
+    """Admin view to list all orders with filtering and search"""
+    serializer_class = AdminOrderListSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AdminOrderPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['status', 'payment_method']
+    search_fields = ['order_number', 'user__email', 'user__username']
+    ordering_fields = ['created_at', 'total_amount', 'status']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        # Only allow admin users
+        if not self.request.user.is_admin:
+            return Order.objects.none()
+        return Order.objects.select_related('user', 'shipping_address', 'payment').prefetch_related('items__product')
+
+
+class AdminOrderDetailView(generics.RetrieveAPIView):
+    """Admin view to get detailed order information"""
+    serializer_class = AdminOrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Only allow admin users
+        if not self.request.user.is_admin:
+            return Order.objects.none()
+        return Order.objects.select_related('user', 'shipping_address', 'payment').prefetch_related('items__product')
+
+
+class AdminOrderUpdateView(generics.UpdateAPIView):
+    """Admin view to update order status"""
+    serializer_class = AdminOrderUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Only allow admin users
+        if not self.request.user.is_admin:
+            return Order.objects.none()
+        return Order.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        return Response({
+            'message': f'Order {instance.order_number} status updated to "{serializer.validated_data["status"]}"',
+            'order': AdminOrderSerializer(instance).data
+        })
+
+
+class AdminOrderStatsView(APIView):
+    """Admin view to get order statistics"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # Only allow admin users
+        if not request.user.is_admin:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        orders = Order.objects.all()
+        
+        # Calculate statistics
+        total_orders = orders.count()
+        total_revenue = sum(order.total_amount for order in orders)
+        
+        # Status counts
+        status_counts = {}
+        for status, _ in Order.STATUS_CHOICES:
+            status_counts[status] = orders.filter(status=status).count()
+        
+        # Recent orders (last 10)
+        recent_orders = orders.order_by('-created_at')[:10]
+        recent_orders_data = AdminOrderListSerializer(recent_orders, many=True).data
+        
+        return Response({
+            'total_orders': total_orders,
+            'total_revenue': float(total_revenue),
+            'status_counts': status_counts,
+            'recent_orders': recent_orders_data
+        })
+
+
+class AdminDashboardView(APIView):
+    """Comprehensive admin dashboard with all statistics"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # Only allow admin users
+        if not request.user.is_admin:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        from accounts.models import User
+        from products.models import Product
+        
+        # Basic counts
+        total_users = User.objects.filter(role='user').count()
+        total_products = Product.objects.count()
+        total_orders = Order.objects.count()
+        total_revenue = Order.objects.aggregate(
+            total=Sum('total_amount')
+        )['total'] or 0
+        
+        # Revenue by year (2020-2025)
+        yearly_revenue = {}
+        for year in range(2020, 2026):
+            year_orders = Order.objects.filter(
+                created_at__year=year
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            yearly_revenue[str(year)] = float(year_orders)
+        
+        # Monthly revenue for current year
+        current_year = timezone.now().year
+        monthly_revenue = {}
+        for month in range(1, 13):
+            month_orders = Order.objects.filter(
+                created_at__year=current_year,
+                created_at__month=month
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            monthly_revenue[str(month)] = float(month_orders)
+        
+        # Order status
+        status_counts = {}
+        for status, _ in Order.STATUS_CHOICES:
+            status_counts[status] = Order.objects.filter(status=status).count()
+        
+        # Low stock products < 5
+        low_stock_products = Product.objects.filter(stock_count__lt=5).values(
+            'id', 'name', 'stock_count'
+        )[:10]
+        
+        # Recent orders last 5
+        recent_orders = Order.objects.select_related('user').order_by('-created_at')[:5]
+        recent_orders_data = []
+        for order in recent_orders:
+            recent_orders_data.append({
+                'id': order.id,
+                'order_number': order.order_number,
+                'user': {
+                    'name': order.user.first_name or order.user.username,
+                    'email': order.user.email
+                },
+                'total_amount': float(order.total_amount),
+                'status': order.status,
+                'created_at': order.created_at.isoformat()
+            })
+        
+        # Top selling products (by quantity sold)
+        top_products = OrderItem.objects.values('product__name').annotate(
+            total_sold=Sum('quantity')
+        ).order_by('-total_sold')[:5]
+        
+        # Daily revenue for last 30 days
+        daily_revenue = {}
+        for i in range(30):
+            date = timezone.now().date() - timedelta(days=i)
+            day_orders = Order.objects.filter(
+                created_at__date=date
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            daily_revenue[date.isoformat()] = float(day_orders)
+        
+        return Response({
+            'summary': {
+                'total_users': total_users,
+                'total_products': total_products,
+                'total_orders': total_orders,
+                'total_revenue': float(total_revenue)
+            },
+            'yearly_revenue': yearly_revenue,
+            'monthly_revenue': monthly_revenue,
+            'daily_revenue': daily_revenue,
+            'status_distribution': status_counts,
+            'low_stock_products': list(low_stock_products),
+            'recent_orders': recent_orders_data,
+            'top_products': list(top_products)
+        })

@@ -6,7 +6,6 @@ from products.models import Product
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
         ('shipped', 'Shipped'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
@@ -14,9 +13,7 @@ class Order(models.Model):
     
     PAYMENT_METHOD_CHOICES = [
         ('cash', 'Cash on Delivery'),
-        ('upi', 'UPI'),
-        ('card', 'Credit/Debit Card'),
-        ('netbanking', 'Net Banking'),
+        ('razorpay', 'Razorpay'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
