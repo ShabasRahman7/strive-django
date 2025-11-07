@@ -9,10 +9,12 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
+from dotenv import load_dotenv
 from pathlib import Path
 from decouple import config
 
+load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -22,15 +24,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-7g5m4kz=g9h#r3m4vpjrfc409827jx2lxpf03+_!nbgj7w4-)i'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = [
+    os.getenv("EB_HOST"),
+    "strive-prod-env.eba-kx2yymi5.ap-south-1.elasticbeanstalk.com",
+    "localhost",
+    "127.0.0.1",
+]
+
+
+if not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        f"https://{os.getenv('EB_HOST')}",
+        f"http://{os.getenv('EB_HOST')}",
+    ]
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    # 'django.contrib.admin',  # 
+    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -40,12 +54,23 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
+    'cloudinary',
+    'cloudinary_storage',
     'accounts',
     'products',
     'orders',
     'categories',
     'carousel',
 ]
+
+# Cloudinary settings
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': config('CLOUDINARY_API_KEY'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET'),
+}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -65,11 +90,6 @@ CSRF_COOKIE_HTTPONLY = False if DEBUG else True
 CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
 CSRF_USE_SESSIONS = False
 CSRF_COOKIE_AGE = 31449600  # 1 year
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
 
 ROOT_URLCONF = 'strive.urls'
 
@@ -141,6 +161,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+# Static files
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATIC_URL = 'static/'
 
 # Default primary key field type
@@ -208,13 +230,14 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://localhost:5173",
+    f"https://{os.getenv('EB_HOST')}",
+    f"http://{os.getenv('EB_HOST')}",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_ROOT = BASE_DIR / 'media'
 
-# Static files
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+

@@ -17,6 +17,7 @@ class UserSerializer(serializers.ModelSerializer):
     addresses = AddressSerializer(many=True, read_only=True)
     password = serializers.CharField(write_only=True, min_length=6)
     confirm_password = serializers.CharField(write_only=True)
+    profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -27,18 +28,17 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'date_joined', 'last_login']
 
+    def get_profile_image(self, obj):
+        """Override the default CloudinaryField serializer to return the URL of the profile image."""
+        if obj.profile_image:
+            return obj.profile_image.url  # Return the image URL (or use .secure_url for HTTPS)
+        return None
+
     def validate(self, attrs):
         if attrs.get('password') != attrs.get('confirm_password'):
             raise serializers.ValidationError("Passwords don't match")
         return attrs
 
-    def create(self, validated_data):
-        validated_data.pop('confirm_password')
-        password = validated_data.pop('password')
-        user = User.objects.create_user(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

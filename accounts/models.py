@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
+from cloudinary.models import CloudinaryField
+from cloudinary.uploader import destroy
 
 class User(AbstractUser):
     ROLE_CHOICES = [
@@ -12,7 +13,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     is_blocked = models.BooleanField(default=False)
     is_admin_added = models.BooleanField(default=False)
-    profile_image = models.URLField(blank=True, null=True)
+    profile_image = CloudinaryField('profile_image', blank=True, null=True) 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -28,6 +29,17 @@ class User(AbstractUser):
     @property
     def is_admin(self):
         return self.role == 'admin'
+
+    def delete(self, *args, **kwargs):
+        """Override delete to remove profile image from Cloudinary when user is deleted."""
+        if self.profile_image:
+            try:
+                public_id = self.profile_image.public_id  # Cloudinary img public id
+                destroy(public_id)  # Delete from Cloudinary
+                print(f"Cloudinary profile image {public_id} deleted successfully.")
+            except Exception as e:
+                print(f"Error deleting profile image from Cloudinary: {e}")
+        super().delete(*args, **kwargs)  # Proceed with the default deletion logic
 
 
 class Address(models.Model):

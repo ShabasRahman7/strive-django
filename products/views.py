@@ -110,5 +110,10 @@ class AdminProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.delete()
+        
+        # Delete associated product images (this will trigger the Cloudinary deletion)
+        for image in instance.images.all():
+            image.delete()  # This will delete the image from Cloudinary as well
+        
+        instance.delete()  # Now delete the product instance from the DB
         return Response(status=status.HTTP_204_NO_CONTENT)

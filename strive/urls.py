@@ -1,3 +1,4 @@
+from django.contrib import admin
 """
 URL configuration for strive project.
 
@@ -24,6 +25,7 @@ from rest_framework_simplejwt.views import (
 from accounts.jwt_views import CookieTokenRefreshView
 
 urlpatterns = [
+    path('admin/', admin.site.urls),
     # JWT Auth
     path('api/auth/jwt/create/', TokenObtainPairView.as_view(), name='jwt-obtain-pair'),
     path('api/auth/jwt/refresh/', CookieTokenRefreshView.as_view(), name='jwt-refresh'),

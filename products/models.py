@@ -1,6 +1,7 @@
 from django.db import models
 from categories.models import Category
-
+from cloudinary.models import CloudinaryField
+from cloudinary.uploader import destroy
 
 class Product(models.Model):
     name = models.CharField(max_length=200)
@@ -25,7 +26,7 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='products/', blank=True, null=True)
+    image = CloudinaryField('image', blank=True, null=True) 
     image_url = models.URLField(blank=True, null=True, help_text="External image URL")
     alt_text = models.CharField(max_length=200, blank=True)
     is_primary = models.BooleanField(default=False)
@@ -45,3 +46,14 @@ class ProductImage(models.Model):
         elif self.image:
             return self.image.url
         return None
+
+    def delete(self, *args, **kwargs):
+        """Override the delete method to delete the image from Cloudinary."""
+        if self.image:
+            public_id = self.image.public_id  # Cloudinary img identifier
+            try:
+                destroy(public_id)  #del img from cloudinary
+                print(f"Cloudinary image {public_id} deleted successfully.")
+            except Exception as e:
+                print(f"Error deleting image from Cloudinary: {e}")
+        super().delete(*args, **kwargs)  # Call the parent class delete method

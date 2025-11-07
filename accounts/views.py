@@ -22,7 +22,7 @@ from .serializers import (
     AdminUserCreateSerializer, PasswordSetupSerializer
 )
 from .authentication import set_jwt_cookies, clear_jwt_cookies
-
+from cloudinary.uploader import upload
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -116,13 +116,13 @@ class UserViewSet(viewsets.ModelViewSet):
     def login(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
-        
+
         if not email or not password:
             return Response({'error': 'Email and password required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             user = User.objects.get(email=email)
-            
+
             # Check if user is admin-added and hasn't set password yet
             if user.is_admin_added and not user.has_usable_password():
                 return Response({
@@ -130,32 +130,34 @@ class UserViewSet(viewsets.ModelViewSet):
                     'message': 'Please check your email for password setup instructions',
                     'requires_password_setup': True
                 }, status=status.HTTP_403_FORBIDDEN)
-            
+
             if user.check_password(password):
                 if user.is_blocked:
                     return Response({'error': 'Account is blocked'}, status=status.HTTP_403_FORBIDDEN)
-                
+
                 refresh = RefreshToken.for_user(user)
-                
+
                 response_data = {
                     'id': user.id,
                     'email': user.email,
                     'name': user.first_name or user.username,
                     'role': user.role,
                     'isBlocked': user.is_blocked,
-                    'profileImage': user.profile_image or 'https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp',
+                    'profileImage': user.profile_image.url if user.profile_image else 'https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp',
                     'addresses': [{'id': addr.id, 'line1': addr.line1, 'line2': addr.line2, 'city': addr.city, 'state': addr.state, 'pin': addr.pin_code, 'type': addr.address_type} for addr in user.addresses.all()],
                     'cart': [{'id': item.product.id, 'name': item.product.name, 'price': float(item.product.price), 'images': [img.image_url_or_file for img in item.product.images.all() if img.image_url_or_file], 'quantity': item.quantity} for item in user.cart_items.all()],
                     'wishlist': [{'id': item.product.id, 'name': item.product.name, 'description': item.product.description, 'price': float(item.product.price), 'count': item.product.stock_count, 'category': item.product.category.name, 'isActive': item.product.is_active, 'images': [img.image_url_or_file for img in item.product.images.all() if img.image_url_or_file]} for item in user.wishlist_items.all()],
                     'orders': []
                 }
-                
+
                 response = Response(response_data)
                 return set_jwt_cookies(response, str(refresh.access_token), str(refresh))
+
             else:
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
     @action(detail=False, methods=['post'])
     def logout(self, request):
@@ -166,28 +168,27 @@ class UserViewSet(viewsets.ModelViewSet):
     def profile(self, request):
         if not request.user.is_authenticated:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-        
+
         if request.method == 'PATCH':
             # Build a safe mutable dict without deep-copying uploaded files
             data = {}
             name_value = request.data.get('name')
             if name_value is not None:
                 data['first_name'] = name_value
-            
+
             # Handle profile image file upload only
             file_obj = request.FILES.get('profile_image')
             if file_obj:
-                path = f"profiles/{request.user.id}/{file_obj.name}"
-                saved_path = default_storage.save(path, ContentFile(file_obj.read()))
-                file_url = request.build_absolute_uri(default_storage.url(saved_path))
-                data['profile_image'] = file_url
-            
+                # Upload the image to Cloudinary
+                upload_response = upload(file_obj)
+                data['profile_image'] = upload_response.get('url')  # Store the Cloudinary URL in the user model
+
             serializer = UserProfileSerializer(request.user, data=data, partial=True)
             if serializer.is_valid():
                 serializer.save()
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         user = request.user
         return Response({
             'id': user.id,
@@ -195,14 +196,13 @@ class UserViewSet(viewsets.ModelViewSet):
             'name': user.first_name or user.username,
             'role': user.role,
             'isBlocked': user.is_blocked,
-            'profileImage': user.profile_image or 'https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp',
+            'profileImage': user.profile_image.url if user.profile_image else 'https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp',
             'addresses': [{'id': addr.id, 'line1': addr.line1, 'line2': addr.line2, 'city': addr.city, 'state': addr.state, 'pin': addr.pin_code, 'type': addr.address_type} for addr in user.addresses.all()],
             'cart': [{'id': item.product.id, 'name': item.product.name, 'price': float(item.product.price), 'images': [img.image_url_or_file for img in item.product.images.all() if img.image_url_or_file], 'quantity': item.quantity} for item in user.cart_items.all()],
             'wishlist': [{'id': item.product.id, 'name': item.product.name, 'description': item.product.description, 'price': float(item.product.price), 'count': item.product.stock_count, 'category': item.product.category.name, 'isActive': item.product.is_active, 'images': [img.image_url_or_file for img in item.product.images.all() if img.image_url_or_file]} for item in user.wishlist_items.all()],
             'orders': []
         })
 
-    # Removed separate update_profile; PATCH is handled in profile action above
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def add_address(self, request):
