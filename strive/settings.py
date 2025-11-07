@@ -38,6 +38,7 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         f"https://{os.getenv('EB_HOST')}",
         f"http://{os.getenv('EB_HOST')}",
+        "https://strive-ecommerce.vercel.app"
     ]
 
 
@@ -232,6 +233,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     f"https://{os.getenv('EB_HOST')}",
     f"http://{os.getenv('EB_HOST')}",
+    "https://strive-ecommerce.vercel.app"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
