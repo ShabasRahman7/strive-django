@@ -28,7 +28,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     os.getenv("EB_HOST"),
-    "strive-prod-env.eba-kx2yymi5.ap-south-1.elasticbeanstalk.com",
+    "strive-ecommerce.vercel.app",
     "localhost",
     "127.0.0.1",
 ]
@@ -36,10 +36,10 @@ ALLOWED_HOSTS = [
 
 if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
-        f"https://{os.getenv('EB_HOST')}",
-        f"http://{os.getenv('EB_HOST')}",
-        "https://strive-ecommerce.vercel.app"
-    ]
+    "https://strive-ecommerce.vercel.app",
+    f"https://{os.getenv('EB_HOST')}",
+    f"http://{os.getenv('EB_HOST')}",
+]
 
 
 # Application definition
@@ -229,11 +229,9 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://localhost:5173",
+    "https://strive-ecommerce.vercel.app",
     f"https://{os.getenv('EB_HOST')}",
     f"http://{os.getenv('EB_HOST')}",
-    "https://strive-ecommerce.vercel.app"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
