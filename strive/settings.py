@@ -203,3 +203,9 @@ CORS_ALLOW_HEADERS = ["Authorization", "Content-Type", "X-CSRFToken"]
 
 
 MEDIA_URL = "/media/"
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Strive Sports E-Commerce API',
+    'DESCRIPTION': 'REST API powering Strive platform',
+    'VERSION': '1.0.0',
+}
