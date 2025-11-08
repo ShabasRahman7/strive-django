@@ -118,38 +118,39 @@ class RazorpayCreateOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        """Create a Razorpay order for the current cart total and return order details."""
-        # Calculate amount from user's cart
-        cart_items = CartItem.objects.filter(user=request.user)
-        if not cart_items.exists():
-            return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
-
-        amount = int(sum(item.product.price * item.quantity for item in cart_items) * 100)  # in paise
-        currency = 'INR'
-
-        if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
-            return Response({'error': 'Razorpay keys not configured'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        receipt_id = f"rcpt_{uuid.uuid4().hex[:12]}"
         try:
+            print("----RZP CREATE ORDER HIT----")
+            print("USER:", request.user.id)
+
+            cart_items = CartItem.objects.filter(user=request.user)
+            print("CART COUNT:", cart_items.count())
+
+            amount = int(sum(item.product.price * item.quantity for item in cart_items) * 100)
+            print("AMOUNT:", amount)
+
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            receipt_id = f"rcpt_{uuid.uuid4().hex[:12]}"
+            print("RECEIPT:", receipt_id)
+
             order = client.order.create({
                 'amount': amount,
-                'currency': currency,
+                'currency': 'INR',
                 'receipt': receipt_id,
                 'payment_capture': 1,
             })
+            print("ORDER RESPONSE:", order)
+
             return Response({
                 'order_id': order.get('id'),
                 'amount': amount,
-                'currency': currency,
+                'currency': 'INR',
                 'key_id': settings.RAZORPAY_KEY_ID,
                 'receipt': receipt_id,
             })
-        except Exception as e:
-            print("Razorpay Error:", e)
-            return Response({'error': 'Razorpay order creation failed', 'detail': str(e)}, status=502)
 
+        except Exception as e:
+            print("RZP ERROR =>", repr(e))   # <---- CRUCIAL LINE
+            return Response({'error': 'Razorpay order creation failed', 'detail': str(e)}, status=502)
 class RazorpayVerifyPaymentView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
