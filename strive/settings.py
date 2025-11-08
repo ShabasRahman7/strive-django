@@ -27,6 +27,7 @@ SECRET_KEY = 'django-insecure-7g5m4kz=g9h#r3m4vpjrfc409827jx2lxpf03+_!nbgj7w4-)i
 DEBUG = False
 
 ALLOWED_HOSTS = [
+    "api.shabasdev.xyz",
     "13.233.156.107",
     "localhost",
     "127.0.0.1",
