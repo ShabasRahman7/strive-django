@@ -27,6 +27,7 @@ SECRET_KEY = 'django-insecure-7g5m4kz=g9h#r3m4vpjrfc409827jx2lxpf03+_!nbgj7w4-)i
 DEBUG = False
 
 ALLOWED_HOSTS = [
+    "api.shabasdev.xyz",
     "13.233.156.107",
     "localhost",
     "127.0.0.1",
@@ -34,11 +35,11 @@ ALLOWED_HOSTS = [
 
 
 
+
 if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
+    "https://api.shabasdev.xyz",
     "https://strive-ecommerce.vercel.app",
-    f"https://{os.getenv('EB_HOST')}",
-    f"http://{os.getenv('EB_HOST')}",
 ]
 
 
@@ -230,8 +231,7 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "https://strive-ecommerce.vercel.app",
-    f"https://{os.getenv('EB_HOST')}",
-    f"http://{os.getenv('EB_HOST')}",
+    "https://api.shabasdev.xyz",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
