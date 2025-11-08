@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'orders',
     'categories',
     'carousel',
+    'drf_yasg',
 ]
 
 

@@ -23,6 +23,19 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from accounts.jwt_views import CookieTokenRefreshView
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Strive Ecommerce API",
+        default_version='v1',
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -35,6 +48,9 @@ urlpatterns = [
     path('api/', include('categories.urls')),
     path('api/', include('orders.urls')),
     path('api/', include('carousel.urls')),
+
+    # swagger docs
+    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 ]
 
 if settings.DEBUG:
