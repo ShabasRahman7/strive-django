@@ -5,28 +5,32 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Product
 from .serializers import AdminProductSerializer, ProductListSerializer
-
+from rest_framework.permissions import AllowAny
 
 class ProductListView(generics.ListAPIView):
     """Public view for listing products"""
+    permission_classes = [AllowAny]
     serializer_class = ProductListSerializer
     queryset = Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
 
 
 class ProductDetailView(generics.RetrieveAPIView):
     """Public view for product details"""
+    permission_classes = [AllowAny]
     serializer_class = ProductListSerializer
     queryset = Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
 
 
 class FeaturedProductsView(generics.ListAPIView):
     """Public view for featured products"""
+    permission_classes = [AllowAny]
     serializer_class = ProductListSerializer
     queryset = Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
 
 
 class TopSellingProductsView(generics.ListAPIView):
     """Public view for top selling products"""
+    permission_classes = [AllowAny]
     serializer_class = ProductListSerializer
     queryset = Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
 
