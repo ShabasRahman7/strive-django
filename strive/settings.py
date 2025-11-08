@@ -204,5 +204,3 @@ CORS_ALLOW_HEADERS = ['Authorization','Content-Type','X-CSRFToken']
 
 
 MEDIA_URL = '/media/'
-
-# test deploy auto sync
