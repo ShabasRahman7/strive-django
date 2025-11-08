@@ -88,7 +88,7 @@ MIDDLEWARE = [
 # CSRF settings for cookie-based authentication
 # In local dev over HTTP, do not use Secure/None combination (cookies would be dropped)
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = False if DEBUG else True
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
 CSRF_USE_SESSIONS = False
 CSRF_COOKIE_AGE = 31449600  # 1 year
@@ -96,6 +96,10 @@ CSRF_COOKIE_AGE = 31449600  # 1 year
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_HTTPONLY = True
+
+# --- Cookie scope (share across subdomains) ---
+SESSION_COOKIE_DOMAIN = ".shabasdev.xyz"
+CSRF_COOKIE_DOMAIN    = ".shabasdev.xyz"
 
 
 ROOT_URLCONF = 'strive.urls'
