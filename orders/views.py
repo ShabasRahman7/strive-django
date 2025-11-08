@@ -147,8 +147,8 @@ class RazorpayCreateOrderView(APIView):
                 'receipt': receipt_id,
             })
         except Exception as e:
-            return Response({'error': 'Razorpay order creation failed', 'detail': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-
+            print("Razorpay Error:", e)
+            return Response({'error': 'Razorpay order creation failed', 'detail': str(e)}, status=502)
 
 class RazorpayVerifyPaymentView(APIView):
     permission_classes = [permissions.IsAuthenticated]
